@@ -7,6 +7,9 @@ output: html_document
 
 ```{r}
 setwd("~/Library/Mobile Documents/com~apple~CloudDocs/Aarhus Universitet/3. Semester/1. Experimental Methods lll/R FOLDER/languagedevelopmentASD/languagedevelopmentASD")
+
+library(pacman)
+p_load(tidyverse, data.table, stringr, ggplot2, Metrics, lmerTest, caret, gdata, plyr)
 ```
 
 
@@ -47,7 +50,7 @@ If you're not in a project in Rstudio, make sure to set your working directory h
 If you created an rstudio project, then your working directory (the directory with your data and code for these assignments) is the project directory. You can always see which working directory is used with `getwd()`. Note that this may be different in the console than in the Rmd cells (don't ask me why).
 
 ```{r}
-
+getwd()
 
 ```
 
@@ -58,6 +61,9 @@ Load the three data sets, after downloading them from dropbox and saving them in
 
 ```{r}
 
+demo_train <- read.csv("demo_train.csv")
+token_train <- read.csv("token_train.csv")
+LU_train <- read.csv("LU_train.csv")
 ```
 
 Explore the 3 datasets (e.g. visualize them, summarize them, etc.). You will see that the data is messy, since the psychologists collected the demographic data, a linguist analyzed the length of utterance in May 2014 and the same linguist analyzed the words several months later. In particular:
@@ -76,13 +82,25 @@ Tip: Or look through the chapter on data transformation in R for data science (h
 
 
 ```{r}
+#Changing ID variable names
+demo_train <- rename.vars(demo_train,"Child.ID", "ID")
+LU_train <- rename.vars(LU_train, "SUBJ", "ID")
+token_train <- rename.vars(token_train, "SUBJ", "ID") 
+
+# Changing to "Visit" 
+LU_train <- rename.vars(LU_train, "VISIT", "Visit")
+token_train <- rename.vars(token_train, "VISIT", "Visit")
 
 ```
 
 2b. Find a way to homogeneize the way "visit" is reported. If you look into the original data sets, you will see that in the LU data and the Token data, Visits are called "visit 1"" instead of just "1"" (which is the case in the demographic data set).
-Tip: There is a package called stringr, which will be very handy for manipulating (text) strings also in furture assignments. We will return to this package later, but for now use the str_extract () to extract only the number from the variable Visit in each data set.
+Tip: There is a package called stringr, which will be very handy for manipulating (text) strings also in future assignments. We will return to this package later, but for now use the str_extract () to extract only the number from the variable Visit in each data set.
 
 ```{r}
+
+# Homogenising the way visits are reported - now it's only numbers. str.extract is used to only look for numbers, which then renames the values to only numbers
+LU_train$Visit <- str_extract(LU_train$Visit, "[1-6]+")
+token_train$Visit <- str_extract(token_train$Visit, "[1-6]+")
 
 ```
 
@@ -96,6 +114,11 @@ Tip: You will have to do identical work for both data sets, so to save time on t
 
 
 ```{r}
+# Replacing all punctuations with nothing - leaving out only the letters
+
+demo_train$ID <- str_replace_all(demo_train$ID,"[:punct:]","")
+LU_train$ID <- str_replace_all(LU_train$ID,"[:punct:]","")
+token_train$ID <- str_replace_all(token_train$ID,"[:punct:]","")
 
 ```
 
@@ -114,14 +137,25 @@ The variables we need are: Child.ID, Visit, Ethnicity, Diagnosis, Gender, Age, A
 It would be smart to rename the last two into something you can remember (i.e. nonVerbalIQ, verbalIQ)
 
 ```{r}
+# First selecting each variable needed from each dataset
+
+subdemo <- select(demo_train, c(ID, Visit, Ethnicity, Diagnosis, Gender, Age, ADOS,  MullenRaw, ExpressiveLangRaw))
+sublu <- select(LU_train, c(ID, Visit, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd))
+subtoken <- select(token_train, c(ID, Visit, types_MOT, types_CHI, tokens_MOT, tokens_CHI))
 
 ```
+
 
 2e. Finally we are ready to merge all the data sets into just one. 
 Tip: Look up "joins" in R for data science, or google "How to merge datasets in R"
 Tip: Joining / merging only works for two data frames at the time.
 
 ```{r}
+# Merging datasets
+train <- join(sublu, subtoken) 
+wholetrain <- join(subdemo, train) 
+
+#Joining by ID and Visit
 
 ```
 
@@ -139,8 +173,23 @@ So let's make sure that we select only these variables as collected during the f
 
 
 ```{r}
+# Subsetting data consistning of only the variables values from visit 1
+subset_train <- subset(wholetrain, Visit == 1, select = (c(ID,ADOS, MullenRaw, ExpressiveLangRaw)))
 
+# Using select and then filter to make a dataset only consisting of the data from visit 1
+select_train <- select(wholetrain, c(Visit, ADOS, MullenRaw, ExpressiveLangRaw))
+select_train <- filter(select_train, Visit == 1)
 
+# Changing variable names in order to not overwrite in grand dataset
+subset_train <- rename.vars(subset_train,"ADOS", "ADOS1")
+subset_train <- rename.vars(subset_train,"MullenRaw", "MullenRaw1")
+subset_train <- rename.vars(subset_train,"ExpressiveLangRaw", "ExpressiveLangRaw1")
+
+# Merging 
+train <- join(wholetrain, subset_train) 
+
+# Filtering out old variables as well as ordering the variables in the right order
+clean_train <- select(train, c(ID, Diagnosis, Visit, Gender, Age, Ethnicity, ADOS1, MullenRaw1, ExpressiveLangRaw1, CHI_MLU, MOT_MLU, CHI_LUstd, MOT_LUstd, types_CHI, types_MOT, tokens_CHI, tokens_MOT))
 ```
 
 Now, we are almost ready to start analysing the data. However, here are some additional finishing touches:
@@ -153,13 +202,23 @@ Tip: google "R how to convert character to integer" or look up the as.??? functi
 * In order to make it easier to work with this nice, clean dataset in the future, it is practical to make sure the variables have sensible values. E.g. right now gender is marked 1 and 2, but in two weeks you will not be able to remember, which gender were connected to which number, so change the values from 1 and 2 to F and M in the gender variable. For the same reason, you should also change the values of Diagnosis from A and B to ASD (autism spectrum disorder) and TD (typically developing). Tip: Try taking a look at ifelse(), or google "how to rename levels in R".
 
 ```{r}
+# Anonymising the children
+clean_train$ID <- as.factor(clean_train$ID)
+clean_train$ID <- as.numeric(clean_train$ID)
 
+#Turning the 1s and 2s into M and F in the gender variable using the long way
+clean_train$Gender <- ifelse(clean_train$Gender == "1", "F", "M")
+
+# Same for diagnosis
+clean_train$Diagnosis <- ifelse(clean_train$Diagnosis == "A", "ASD", "TD")   
 ```
 
 
 Write the data set into a csv file. 
 
 ```{r}
+# Writing the dataset into a new file
+write.csv(clean_train, file ="LanguageASD.csv")
 
 ```
 
@@ -176,18 +235,34 @@ List all kids who:
 3. have not completed all trials. Tip: Use pipes `%>%` to solve this
 
 ```{r}
+# Mean Length of Utterance
+clean_train %>%
+  filter(CHI_MLU > 2.7)
 
+# MLU less than 1,5 for the first visits
+clean_train %>%
+  filter(CHI_MLU < 1.5, Visit == "1")
+
+# Filtering all kids that have a visit with NA values (since in MLU, NA is in all)
+bla <- clean_train %>%
+  filter(is.na(CHI_MLU))
 
 ```
-
 
 USING ARRANGE
 
 1. Sort kids to find the kid who produced the most words on the 6th visit
 2. Sort kids to find the kid who produced the least amount of words on the 1st visit.
-
 ```{r}
+# Ordered by the children who produced the most words on the 6th visit
+clean_train %>%
+  filter(Visit == "6") %>%
+  arrange(tokens_CHI)
 
+# Ordered by the children who produced the least amount of words on the 1st visit
+clean_train %>%
+  filter(Visit == "1") %>%
+  arrange(desc(tokens_CHI))
 
 ```
 
@@ -198,15 +273,41 @@ USING SELECT
 
 ```{r}
 
+onlyASD <- subset(clean_train, Diagnosis == "ASD", select = (c("Diagnosis", "CHI_MLU", "tokens_CHI")))
+
+# Repeating
+onlyASD <- subset(clean_train, Diagnosis == "ASD", select = (c("Diagnosis", "Diagnosis", "CHI_MLU", "tokens_CHI")))
+# Nothing happens - only one of the variables is íncluded
+
 ```
 
 
 USING MUTATE, SUMMARISE and PIPES
 1. Add a column to the data set that represents the mean number of words spoken during all visits.
 2. Use the summarise function and pipes to add an column in the data set containing the mean amount of words produced by each trial across all visits. HINT: group by Child.ID 
-3. The solution to task above enables us to assess the average amount of words produced by each child. Why don't we just use these average values to describe the language production of the children? What is the advantage of keeping all the data?
+3. The solution to the task above enables us to assess the average amount of words produced by each child. Why don't we just use these average values to describe the language production of the children? What is the advantage of keeping all the data?
 
 ```{r}
+#Problems with the plyr package - couldn't use group_by
+detach(package:plyr)
+library(dplyr)
 
+clean_mean$ID <- as.character(clean_mean$ID)
+
+
+# 1: Adding a coloumn with an overall mean value of all words spoken (all participants, all trials)
+clean_mean <- clean_train %>%
+  mutate(mean_overall = mean(tokens_CHI, na.rm = T))
+
+# 2: Adding a coloumn with the value of each participant's mean number of words spoken generally 
+clean_mean <- clean_mean %>%
+  group_by(ID) %>%
+  mutate(mean_tokens = mean(tokens_CHI, na.rm = T))
+
+# 3. 
+# 
 
 ```
+
+
+
