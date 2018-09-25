@@ -1,8 +1,10 @@
 ---
 title: "A1_P1_Student"
-author: "Riccardo Fusaroli"
+author: "Amalie Lysgaard Andersen"
 date: "01/07/2018"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r}
@@ -10,6 +12,7 @@ setwd("~/Library/Mobile Documents/com~apple~CloudDocs/Aarhus Universitet/3. Seme
 
 library(pacman)
 p_load(tidyverse, data.table, stringr, ggplot2, Metrics, lmerTest, caret, gdata, plyr)
+
 ```
 
 
@@ -59,7 +62,7 @@ Load the three data sets, after downloading them from dropbox and saving them in
 * Length of utterance data: https://www.dropbox.com/s/usyauqm37a76of6/LU_train.csv?dl=0
 * Word data: https://www.dropbox.com/s/8ng1civpl2aux58/token_train.csv?dl=0
 
-```{r}
+```{r Loading data}
 
 demo_train <- read.csv("demo_train.csv")
 token_train <- read.csv("token_train.csv")
@@ -80,14 +83,13 @@ Tip: Look into the package dplyr (part of tidyverse)
 Tip: Or google "how to rename variables in R". 
 Tip: Or look through the chapter on data transformation in R for data science (http://r4ds.had.co.nz).
 
-
 ```{r}
-#Changing ID variable names
+# Changing ID variable names
 demo_train <- rename.vars(demo_train,"Child.ID", "ID")
 LU_train <- rename.vars(LU_train, "SUBJ", "ID")
 token_train <- rename.vars(token_train, "SUBJ", "ID") 
 
-# Changing to "Visit" 
+# Changing to lowercase letters
 LU_train <- rename.vars(LU_train, "VISIT", "Visit")
 token_train <- rename.vars(token_train, "VISIT", "Visit")
 
@@ -98,10 +100,13 @@ Tip: There is a package called stringr, which will be very handy for manipulatin
 
 ```{r}
 
-# Homogenising the way visits are reported - now it's only numbers. str.extract is used to only look for numbers, which then renames the values to only numbers
+# Homogenising the way visits are reported - now it's only numbers. str.extract is used to only look for numbers, which then renames the values to only numbers. It's extracting all the values that match the pattern I have specified in the square brackets: numbers between 1-6
 LU_train$Visit <- str_extract(LU_train$Visit, "[1-6]+")
 token_train$Visit <- str_extract(token_train$Visit, "[1-6]+")
 
+
+## Other ways to do it
+# [:digit:]
 ```
 
 2c. We also need to make a small adjustment to the content of the Child.ID coloumn in the demographic data. Within this column, names that are not abbreviations do not end with "." (i.e. Adam), which is the case in the other two data sets (i.e. Adam.). If The content of the two variables isn't identical the data sets will not be merged sufficiently.
@@ -112,14 +117,15 @@ Tip: You can either have one line of code for each child name that is to be chan
 
 Tip: You will have to do identical work for both data sets, so to save time on the copy/paste use the cmd+f/ctrl+f function. Add the data frame name (e.g. LU_data) in the first box, and the data frame name (e.g. Tokens_data) you wish to change it to in the other box, and press replace. Or create a function that takes the data set and does the transformation. Then call the function on both data sets.
 
-
 ```{r}
 # Replacing all punctuations with nothing - leaving out only the letters
-
 demo_train$ID <- str_replace_all(demo_train$ID,"[:punct:]","")
 LU_train$ID <- str_replace_all(LU_train$ID,"[:punct:]","")
 token_train$ID <- str_replace_all(token_train$ID,"[:punct:]","")
 
+## Other ways
+# str.detect + str.remove ".$"
+# the dollar sign tells R to look for punctuations at the end of sentences --> $ is a way to specify ends
 ```
 
 2d. Now that the nitty gritty details of the different data sets are fixed, we want to make a subset of each data set only containig the variables that we wish to use in the final data set.
@@ -138,11 +144,11 @@ It would be smart to rename the last two into something you can remember (i.e. n
 
 ```{r}
 # First selecting each variable needed from each dataset
-
 subdemo <- select(demo_train, c(ID, Visit, Ethnicity, Diagnosis, Gender, Age, ADOS,  MullenRaw, ExpressiveLangRaw))
 sublu <- select(LU_train, c(ID, Visit, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd))
 subtoken <- select(token_train, c(ID, Visit, types_MOT, types_CHI, tokens_MOT, tokens_CHI))
 
+## Note: we didn't rename the last two variables
 ```
 
 
@@ -219,9 +225,7 @@ Write the data set into a csv file.
 ```{r}
 # Writing the dataset into a new file
 write.csv(clean_train, file ="LanguageASD.csv")
-
 ```
-
 
 3) Now that we have a nice clean data set to use for the analysis next week, we shall play a bit around with it. The following exercises are not relevant for the analysis, but are here so you can get familiar with the functions within the tidyverse package.
 
@@ -235,16 +239,16 @@ List all kids who:
 3. have not completed all trials. Tip: Use pipes `%>%` to solve this
 
 ```{r}
-# Mean Length of Utterance
+# 1. Filtering out participants with a Mean Length of Utterance value larger than 2.7 morphemes
 clean_train %>%
   filter(CHI_MLU > 2.7)
 
-# MLU less than 1,5 for the first visits
+# 2. Filtering out participants with a MLU less than 1,5 for the first visits
 clean_train %>%
   filter(CHI_MLU < 1.5, Visit == "1")
 
-# Filtering all kids that have a visit with NA values (since in MLU, NA is in all)
-bla <- clean_train %>%
+# 3. Filtering all kids that have a visit with NA values (since in MLU, NA is in all)
+clean_train %>%
   filter(is.na(CHI_MLU))
 
 ```
@@ -254,12 +258,13 @@ USING ARRANGE
 1. Sort kids to find the kid who produced the most words on the 6th visit
 2. Sort kids to find the kid who produced the least amount of words on the 1st visit.
 ```{r}
-# Ordered by the children who produced the most words on the 6th visit
+# 1. Ordered by the children who produced the most words on the 6th visit
 clean_train %>%
-  filter(Visit == "6") %>%
-  arrange(tokens_CHI)
+  filter(Visit == 6) %>%
+  arrange(desc(tokens_CHI)) %>%
+  slice(1)
 
-# Ordered by the children who produced the least amount of words on the 1st visit
+# 2. Ordered by the children who produced the least amount of words on the 1st visit
 clean_train %>%
   filter(Visit == "1") %>%
   arrange(desc(tokens_CHI))
@@ -272,11 +277,12 @@ USING SELECT
 2. What happens if you include the name of a variable multiple times in a select() call?
 
 ```{r}
-
+# Subsetting the variables 
 onlyASD <- subset(clean_train, Diagnosis == "ASD", select = (c("Diagnosis", "CHI_MLU", "tokens_CHI")))
 
-# Repeating
+# 2. Repeating
 onlyASD <- subset(clean_train, Diagnosis == "ASD", select = (c("Diagnosis", "Diagnosis", "CHI_MLU", "tokens_CHI")))
+
 # Nothing happens - only one of the variables is íncluded
 
 ```
@@ -292,20 +298,20 @@ USING MUTATE, SUMMARISE and PIPES
 detach(package:plyr)
 library(dplyr)
 
-clean_mean$ID <- as.character(clean_mean$ID)
+# Changing 
+clean_train$ID <- as.character(clean_train$ID)
 
 
 # 1: Adding a coloumn with an overall mean value of all words spoken (all participants, all trials)
-clean_mean <- clean_train %>%
+clean_train <- clean_train %>%
   mutate(mean_overall = mean(tokens_CHI, na.rm = T))
 
 # 2: Adding a coloumn with the value of each participant's mean number of words spoken generally 
-clean_mean <- clean_mean %>%
+clean_train <- clean_train %>%
   group_by(ID) %>%
   mutate(mean_tokens = mean(tokens_CHI, na.rm = T))
 
-# 3. 
-# 
+# 3. You lose a lot of information by filtering out any other variables than the average, so even though the average is good for gaining an overview of the data, the interpretation will be simplistic. If there's no normal distribution, then the mean is not necessarily a good description of the data we have before us - it will hide each participant's actual progress. Keeping all the data is more complicated though, and it requires more steps and energy to understand the data. What you get out of keeping it though, is all the variance 
 
 ```
 
