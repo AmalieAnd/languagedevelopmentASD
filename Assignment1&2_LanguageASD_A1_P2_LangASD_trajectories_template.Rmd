@@ -1,0 +1,498 @@
+---
+title: "Assignment 1 - Language Development in ASD - part 2"
+author: "Amalie Lysgaard Andersen"
+date: "12.9.2018"
+output: html_document
+---
+    
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+# you could optionally set include = TRUE globally while working on the exercise and then just change it to include = FALSE before you hand in
+
+```
+
+# Template for the hand-in
+### Structure of the code chunks
+
+Basic stuff:
+- Loading the libraries
+- Setting the directory and loading the data
+- Look at the data (which variables are there? Are they in the right format?) and describe the participants (by diagnosis)
+
+
+We will try to answer three questions:
+    
+- Do children with ASD develop language differently from non-ASD children?
+- Do parents speak differently to children with ASD than to non-ASD ones?
+- Which variables should we use to best explain the child linguistic performance?
+
+### Loading the relevant libraries
+
+Load necessary libraries : what will you need?
+
+- e.g. something to plot with
+- e.g. mixed effects models
+
+```{r Load Libraries, include = FALSE}
+#Load libraries
+library(pacman)
+p_load(tidyverse, data.table, stringr, ggplot2, Metrics, lmerTest, caret, gdata, lme4, pastecs, ggplot2, MuMIn, corrplot, RColorBrewer)
+```
+
+### Define your working directory and load the data
+If you created a project for this class and opened this Rmd file from within that project, your working directory is your project directory.
+
+If you opened this Rmd file outside of a project, you will need some code to find the data:
+- Create a new variable called locpath (localpath)
+- Set it to be equal to your working directory
+- Move to that directory (setwd(locpath))
+- Load the data you saved last time (use read_csv(fileName))
+
+If you're in a project, just put the data in the project folder and you're good to go! (Or make a data subfolder to keep it tidy around here)
+```{r Load Data + renaming, include = FALSE}
+#wd
+setwd("~/Library/Mobile Documents/com~apple~CloudDocs/Aarhus Universitet/3. Semester/1. Experimental Methods lll/R FOLDER/languagedevelopmentASD/languagedevelopmentASD")
+
+#Load data
+langASD <- read.csv("LanguageASD.csv")
+
+# Renaming some variables for them to be more clearly understood
+langASD <- rename.vars(langASD,"MullenRaw1", "nonverbalIQ")
+langASD <- rename.vars(langASD,"ExpressiveLangRaw1", "verbalIQ")
+
+# Changing the rest of the variable names to lowercase letters
+langASD <- rename.vars(langASD, "Diagnosis", "diagnosis")
+langASD <- rename.vars(langASD, "Gender", "gender")
+langASD <- rename.vars(langASD, "Age", "age")
+langASD <- rename.vars(langASD, "Ethnicity", "ethnicity")
+langASD <- rename.vars(langASD, "Visit", "visit")
+langASD <- rename.vars(langASD, "ADOS1", "ados1")
+
+```
+
+```{r Filtering, include=FALSE}
+# filtering out participants due to insufficient data collection
+langASD <- langASD[-c(1, 68, 69, 130, 131, 132, 276, 277, 284, 285), ]
+
+# 4 participants filtered out:  ID 11 and 66, 48, 50
+```
+
+### Characterize the participants (Exercise 1)
+
+Identify relevant variables: participants demographic characteristics, diagnosis, ADOS, Verbal IQ, Non Verbal IQ, Visit, Number of words used, Number of unique words used, length of utterance in both child and parents.
+
+Make sure the variables are in the right format.
+
+Describe the characteristics of the two groups of participants and whether the two groups are well matched.
+
+```{r descriptive stats, include = FALSE}
+# Counting diagnosis
+langASD %>%
+  filter(visit==1)%>%
+  count(diagnosis)
+
+# Counting gender
+langASD %>%
+  filter(visit==1)%>%
+  count(gender)
+
+# Ethnicity
+langASD %>%
+  filter(visit==1)%>%
+  count(ethnicity)
+
+# Age spectrum from 1st visit
+mean(langASD$age[langASD$visit=="1"], na.rm = T)
+
+# Finding means
+mean(langASD$age[langASD$diagnosis=="ASD"], na.rm = T)
+mean(langASD$age[langASD$diagnosis=="TD"], na.rm = T)
+
+# MLU mean
+mean(langASD$CHI_MLU[langASD$diagnosis=="ASD"], na.rm = T)
+mean(langASD$CHI_MLU[langASD$diagnosis=="TD"], na.rm = T)
+
+# Parents MLU mean
+mean(langASD$MOT_MLU[langASD$diagnosis=="ASD"], na.rm = T)
+mean(langASD$MOT_MLU[langASD$diagnosis=="TD"], na.rm = T)
+
+# nonverbalIQ mean
+mean(langASD$nonverbalIQ[langASD$diagnosis=="ASD"], na.rm = T)
+mean(langASD$nonverbalIQ[langASD$diagnosis=="TD"], na.rm = T)
+ 
+# verbalIQ mean 
+mean(langASD$verbalIQ[langASD$diagnosis=="ASD"], na.rm = T) 
+mean(langASD$verbalIQ[langASD$diagnosis=="TD"], na.rm = T) 
+ 
+
+# Visualising the data - Boxplot
+boxplot(CHI_MLU~visit+diagnosis, 
+        col = c("white", "grey"),
+        langASD)
+``` 
+
+[REPORT THE RESULTS]
+We have decided to remove ID 11 and ID 66 due to messed up data. 
+
+
+
+## Let's test hypothesis 1: Children with ASD display a language impairment  (Exercise 2)
+
+### Hypothesis: The child's MLU changes: i) over time, ii) according to diagnosis
+
+Let's start with a simple mixed effects linear model
+
+Remember to plot the data first and then to run a statistical test.
+- Which variable(s) should be included as fixed factors?
+- Which variable(s) should be included as random factors?
+
+```{r ex2, include = FALSE}
+# Creating a linear model
+asd_model = lmer(CHI_MLU ~ visit + diagnosis + (1+visit|ID), data=langASD, REML=FALSE)
+summary(asd_model)
+```
+
+
+How would you evaluate whether the model is a good model?
+```{r ex2 evaluate, include = FALSE}
+### First checking for assumptions
+
+# Normality
+qqnorm(residuals(asd_model)) 
+# Histogram
+hist(residuals(asd_model))
+# Getting descriptive statistics for residuals of the model 
+round(stat.desc(residuals(asd_model)),2)
+# Plotting the residuals
+plot(fitted(asd_model),residuals(asd_model))^2
+
+
+### R^2
+# Checking how much variance is explained by the model
+r.squaredGLMM(asd_model)
+
+
+
+### Doing an ANOVA to compare our model with a null model
+
+# First making a null model without visit
+model1.null = lmer(CHI_MLU ~ diagnosis + (1+visit|ID), data=langASD, REML=F)
+summary(model1.null)
+# Without diagnosis
+model1.null2 <- lmer(CHI_MLU ~ visit + (1 + visit | ID), data=langASD, REML = F)
+# Without visit as random slope
+model_ID <- lmer(CHI_MLU ~ visit + diagnosis + (1 | ID), data=langASD, REML = F)
+
+# ANOVA: Comparing the null models to the alternative model
+anova(model1.null2, asd_model)
+anova(model1.null, asd_model, model_ID)
+```
+
+
+```{r Visualisation of data}
+
+# Assigning label values
+xlab <- "Visit"
+ylab <- "Mean Length of Utterance"
+
+# Non-linear descriptions - one linear mean line line/group
+ggplot(langASD, display = "ID", mapping = aes(x = visit, y = CHI_MLU, colour = ID)) + 
+  stat_smooth(method = "lm", se = F, formula = y ~ poly(x, 3), colour = "grey") +
+  geom_point() +
+  facet_wrap(~diagnosis) +
+  labs(x= xlab, y=ylab)
+
+# Individually coloured participants with one linear mean line in each group
+ggplot(langASD) + 
+  aes(x = visit, y = CHI_MLU, color = ID) + 
+  stat_smooth(method = "lm", se = FALSE, col = "grey") +
+  # Put the points on top of lines
+  geom_point() +
+  facet_wrap("diagnosis") +
+  labs(x = xlab, y = ylab)
+
+# Each participant has a mean linear line + each point shown
+ggplot(langASD, aes(x = visit, y = CHI_MLU, group = ID)) +
+  geom_smooth(method = "lm", se = F, aes(col = ID)) + 
+  geom_point(aes(col = ID)) +
+  facet_wrap(~ diagnosis) + 
+  labs(x = xlab, y = ylab)
+
+```
+
+Not too good, right? Let's check whether a growth curve model is better.
+Remember: a growth curve model assesses whether changes in time can be described by linear, or quadratic, or cubic (or... etc.) components.
+First build the different models, then compare them to see which one is better
+
+```{r ex2 growth curve, include = FALSE}
+# Creating the quadratic model - and checking it
+model_quadratic <- lmer(CHI_MLU ~ visit + I(visit^2) + diagnosis + (1+visit|ID), data = langASD, REML=FALSE)
+summary(model_quadratic)
+plot(fitted(model_quadratic),residuals(model_quadratic))^2
+# Residuals = 0.14
+
+# Cubic model
+model_cubic <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + diagnosis + (1+visit + I(visit^2) + I(visit^3)|ID), data = langASD, REML=FALSE)
+summary(model_cubic)
+plot(fitted(model_cubic),residuals(model_cubic))^2
+  
+ 
+# Comparing the models with anova test
+anova(asd_model, model_quadratic, model_cubic) 
+anova(model1.null, asd_model, model_quadratic, model_cubic)
+anova(model1.null, model_cubic)
+
+``` 
+
+
+```{r Plots of new models}
+### Quadratic
+
+# Plotting w. mean line
+ggplot(langASD) + 
+  aes(x = visit, y = CHI_MLU) + 
+  stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  # Put the points on top of lines
+  geom_point() +
+  facet_wrap("diagnosis") +
+  labs(x = xlab, y = ylab)
+
+# Individual lines
+ggplot(data = langASD, aes(x = visit, y = CHI_MLU, group = ID)) +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = F, aes(color = ID)) + 
+  geom_point(aes(col = ID)) + 
+  facet_wrap(~ diagnosis) + 
+  labs(x = xlab, y = ylab)
+
+
+
+### Cubic
+# Plotting with mean line
+ggplot(langASD) + 
+  aes(x = visit, y = CHI_MLU) + 
+  geom_point(aes(col = ID)) +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 3), col= "orange") + 
+  # Put the points on top of lines
+  facet_wrap("diagnosis") +
+  labs(x = xlab, y = ylab)
+
+# Plotting with individual lines
+ggplot(langASD, aes(x = visit, y = CHI_MLU, group = ID)) + 
+  geom_smooth(method = "lm", formula = y ~ poly(x, 3), se = F, aes(color = ID)) + 
+  geom_point(aes(col = ID)) + 
+  facet_wrap(~ diagnosis) + 
+  labs(x = xlab, y = ylab)
+
+```
+
+
+Exciting right?
+Now it's time to report our results.
+Remember to report:
+- the estimates for each predictor (beta estimate, standard error, p-value)
+- A plain word description of the results
+- A plot of your best model's predictions
+
+[REPORT THE RESULTS]
+Linguistic development of children MLU is affected by ... 
+
+## Let's test hypothesis 2: Parents speak equally to children with ASD and TD  (Exercise 3)
+
+### Hypothesis: Parental MLU changes: i) over time, ii) according to diagnosis
+
+```{r ex3 Visualisations + model, include = FALSE}
+### First visualising
+
+# Plotting the MLU of parent 
+boxplot(MOT_MLU ~ visit+diagnosis, data = langASD,
+        col = c("white", "grey"))
+
+# Creating a linear model for parental MLU
+parental_MLU = lmer(MOT_MLU ~ visit + diagnosis + (1+visit|ID), data=langASD, REML=FALSE)
+summary(parent_mlu)
+
+#Linear plot
+ggplot(data = langASD, aes(x = visit, y = MOT_MLU, group = ID)) +
+  geom_smooth(method = "lm", se = F, aes(color = ID)) +
+  geom_point(aes(col = ID)) + 
+  facet_wrap(~ diagnosis) + 
+  labs(x = xlab, y = ylab)
+```
+
+```{r ex3 Models}
+### Quadratic Parental Model
+parental_MLU_quadratic <- lmer(MOT_MLU ~ visit + I(visit^2) + diagnosis + (1+visit + I(visit^2) |ID), data = langASD, REML=FALSE)
+summary(parental_MLU_quadratic)
+
+# Residual plot
+plot(fitted(parental_MLU_quadratic),residuals(parental_MLU_quadratic))^2
+
+# Plotting quadratic model
+ggplot(data = langASD, aes(x = visit, y = MOT_MLU, group = ID)) +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = F, aes(color = ID)) + 
+  geom_point(aes(col = ID)) + 
+  facet_wrap(~ diagnosis) + 
+  labs(x = xlab, y = ylab)
+
+# Mean line
+ggplot(data = langASD, aes(x = visit, y = MOT_MLU)) +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = F, color = "orange") + 
+  geom_point(aes(col = ID)) + 
+  facet_wrap(~ diagnosis) + 
+  labs(x = xlab, y = ylab)
+
+
+
+### Cubic parental model
+parental_MLU_cubic <- lmer(MOT_MLU ~ visit + I(visit^2) + I(visit^3) + diagnosis + (1+visit + I(visit^2) + I(visit^3) |ID), data = langASD, REML=FALSE)
+summary(parental_MLU_cubic)
+
+# Residual plot
+plot(fitted(parental_MLU_cubic),residuals(parental_MLU_cubic))^2
+
+# Plotting
+ggplot(data = langASD, aes(x = visit, y = MOT_MLU, group = ID)) +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 3), se = F, aes(color = ID)) + 
+  geom_point(aes(col = ID)) + 
+  facet_wrap(~ diagnosis) + 
+  labs(x = xlab, y = ylab)
+
+
+### Checking models
+anova(parental_MLU, parental_MLU_quadratic, parental_MLU_cubic)
+
+#Checking the best (quadratic) against the null.model
+anova(model1.null, model1.null2, Parental_model_quadratic)
+```
+
+
+[REPORT THE RESULTS]
+
+The quadratic model is the one with the lowest AIC. 
+And most significant.
+
+
+### Adding new variables (Exercise 4)
+
+Your task now is to figure out how to best describe the children linguistic trajectory. The dataset contains a bunch of additional demographic, cognitive and clinical variables (e.g.verbal and non-verbal IQ). Try them out and identify the statistical models that best describes your data (that is, the children's MLU). Describe how you selected the best model and send the code to run the model to Malte (au540041@post.au.dk).
+
+
+```{r ex4, include = FALSE}
+# Correlation test to find variables that correlate / explain the same variance 
+
+data_cor = select(langASD, visit, age, ados1, nonverbalIQ, verbalIQ, MOT_MLU, types_MOT, tokens_MOT, types_CHI, tokens_CHI, CHI_MLU)  %>%
+  filter(!is.na(age)) %>% filter(!is.na(CHI_MLU))
+
+corr = round(cor(data_cor,method = "spearman"),2)
+corr
+
+# Using corrplot to visually show the correlations
+corrplot(corr,method="color",col=brewer.pal(n=5, name="PuOr"),type="upper",tl.col="black", addgrid.col = "black")
+
+```
+
+[REPORT THE RESULTS]
+
+Playing with Ados (severity)
+```{r ex4, include = FALSE}
+### Trying to find the best model
+
+# Using ados instead of diagnosis
+model_ados <- lmer(CHI_MLU ~ visit + ados1 + (1 + visit| ID), data = langASD, REML=FALSE)
+summary(model_ados)
+
+# R-squared
+r.squaredGLMM(model_ados)
+
+####           R2m       R2c
+####  [1,] 0.3420729 0.8020767
+
+# More R2m than in model1. Ados might be a better predictor than diagnosis.
+
+```
+
+
+Playing with MOT_MLU
+```{r ex4, include = FALSE}
+# Adding the parents' MLU
+model_MOT <- lmer(CHI_MLU ~ visit + MOT_MLU + (1 + visit| ID), data = langASD, REML=FALSE)
+summary(model_MOT)
+# A lot of variance seems to be explained by MOT_MLU
+
+#R-squared
+r.squaredGLMM(model_MOT)
+
+###           R2m       R2c
+### [<1,] 0.2886038 0.8098728
+
+# Less than with ados but better than model1
+
+
+# Time-out: Comparing the two new models created so far
+anova(model_ados, model_MOT)
+# MOT is better... 
+
+
+#Combining the findings with ados and mot_mlu
+
+##Cubic try with ados predictor model
+model_ados_c <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + ados1 + (1+visit + I(visit^2) + I(visit^3)| ID), data = langASD, REML=FALSE)
+summary(model_ados_c)
+# A lot is left to the residuals....
+
+#R^2
+r.squaredGLMM(model_ados_c)
+
+##           R2m       R2c
+##[1,] 0.2785971 0.8715399
+# 28 % is explained by the predictors, 87 % by predictors + random
+
+
+## Quadratic with ados
+model_ados_q <-lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + (1+visit + I(visit^2) | ID), data = langASD, REML=FALSE)
+r.squaredGLMM(model_ados_q)
+
+#          R2m       R2c
+# [1,] 0.2492597 0.8482384
+# Less is explained by this model than the cubic ados model
+
+
+## Quadratic with both ados and mot_mly
+model_both_q <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + (1+visit + I(visit^2) | ID), data = langASD, REML=FALSE)
+r.squaredGLMM(model_both_q)
+
+##           R2m       R2c
+## [1,] 0.3041565 0.8507551
+#This model explains more than the quadratic with only ados
+
+
+###Comparing
+anova(model_ados_c, model_ados_q, model_both_q, model_cubic)
+
+```
+
+
+```{r Visualisations}
+
+##Plotting the data with ados
+ggplot(data = langASD, aes(x = visit, y = CHI_MLU, group = ados1, colour = ados1)) +
+  geom_smooth(method = "lm", 
+              formula = y ~ poly(x, 3), se = F) + 
+  geom_point() + 
+  facet_wrap(~ diagnosis) + 
+  labs(x = xlab, y = ylab) + 
+  scale_color_gradient2(low = "blue", mid = "green", high = "red", midpoint = 10)
+
+
+####Facet by ados
+ggplot(data = langASD, aes(x = visit, y = CHI_MLU, group = ados1, colour = ados1)) +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 3), se = F) + 
+  geom_point() + 
+  facet_wrap(~ ados1) + 
+  labs(x = xlab, y = ylab) + 
+  scale_color_gradient2(low = "blue", mid = "green", high = "red", midpoint = 10)
+
+
+
+
+```
