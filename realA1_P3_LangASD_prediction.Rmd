@@ -2,7 +2,7 @@
 title: "Assignment 1 - Language Development in ASD - part 3"
 author: "Amalie Lysgaard Andersen"
 date: "August 10, 2018"
-output: html_document
+output: word_document
 ---
 
 ```{r setup, include=FALSE}
@@ -21,7 +21,6 @@ In this exercise we will delve more in depth with different practices of model c
 N.B. There are several datasets for this exercise, so pay attention to which one you are using!
 
 1. The (training) dataset from last time (the awesome one you produced :-) ).
-
 2. The (test) datasets on which you can test the models from last time:
 
 * Demographic and clinical data: https://www.dropbox.com/s/ra99bdvm6fzay3g/demo_test.csv?dl=1
@@ -155,9 +154,9 @@ rmse(data_test$CHI_MLU,predict(model_train, data_test))
 # Very bad prediction on the test set. High rmse = low accuracy
 ```
 
+ANSWER:
 We observe that the accuracy of the predictions decreases a lot when the model is applied to the new (test) data. The root mean squared error goes from 0.25 to 0.78, which indicates that the model's predictive power has low accuracy. Where a root mean square error of 0.25 does not point towards a perfectly accurate model prediction of our training data, the RMSE of the test data is a lot less accurate.
 The model can thus be granted good explanatory power, but the predictive power is weak. 
-
 
 
 
@@ -186,7 +185,7 @@ hercules <- lmer(CHI_MLU ~ visit + diagnosis + (1 + visit | ID), data = data, RE
 zeus <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + ados1 + MOT_MLU + verbalIQ + (1+visit + I(visit^2)+ I(visit^3)| ID), data = data, REML=FALSE)
 ```
 
-```{r Cross validation, include=FALSE}
+```{r Split: Cross validation, include=FALSE}
 ### BASIC MODEL - HERCULES
 # Implement the 5-fold cross-fold plan
 splitPlan <- kWayCrossValidation(nrow(data), 5, NULL, NULL)
@@ -236,8 +235,9 @@ rmse(data$CHI_MLU, data$pred.cv.best)
 ## [1] 0.4264432
 
 ```
+
 How does the models predict the test data in reality?
-```{r, include=FALSE}
+```{r, Reality test, include=FALSE}
 # Basic model
 rmse(predict(hercules, data_test), data_test$CHI_MLU)
 #[1] 1.068573
@@ -247,11 +247,8 @@ rmse(predict(zeus, data_test), data_test$CHI_MLU)
 #[1] 0.7793297
 ```
 
-
-Another way to do CV
-
-The basic model
 ```{r Cross validation: createFolds, include=FALSE}
+# Another way to do CV (Riccardo's way)
 #k <- 10 #the number of folds
 #Crate the folds
 folds <- cvFolds(NROW(data), K=k)
@@ -273,15 +270,12 @@ for(i in 1:k){
 
 #How does the basic model perform
 rmse(data$cv.pred, data$CHI_MLU)
-
-
 ```
 
 The "best" model from last assignment
 ```{r, include=FALSE}
 #preparing a column
 data$cv.pred_best <- rep(0,nrow(data))
-
 
 for(i in 1:k){
   train <- data[folds$subsets[folds$which != i], ] #Set the training set
@@ -297,19 +291,21 @@ for(i in 1:k){
   #Put the hold out prediction in the data set for later use
 }
 
-
 rmse(data$cv.pred_best, data$CHI_MLU)
-
-
-
 
 ```
 
+ANSWER:
+The basic linear model (pseudocode: mean length of utterance ~ visit + diagnosis + (visit | ID)) produces a root mean squared error of only 0.34, when predicting on the training data set. However, when the model is trained with a 5-fold cross validation, the root mean squared error increases to 0.51.
+
+As already mentioned earlier the cubic model, that we chose to be the best model in the previous assignment (pseudocode: mean length of utterance ~ visit + visit^2 + visit^3 + verbalIQ + ados + mother's MLU (visit + visit^2 + visit^3| ID)) produces a mean squared error of 0.28, when applied to the traning data. As with the linear model, the error increases when the model is trained with a 5-fold cross validation - to 0.46, respectively.
+
+First of all, this means that the cubic model is still better at predicting the traning data compared to the linear model.
+
+When the two models' cross validation predictions are applied to the actual test data they both turn out to be quite far off. The linear model produces a root mean squared error of 1.07. The cubic model produces a rmse of 0.79. Thus, the cubic model is still performing better on the test data than the linear, however what worse than predicted with the traning data (both with and without cross validation of the model).
+
 
 - Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
-- Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
-- Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
-
 ```{r, include=FALSE}
 # Implement the 5-fold cross-fold plan. Reusing earlier splitPlan + k
 data$pred.cv.create <- 0 
@@ -320,7 +316,8 @@ for(i in 1:k) {
   model.create <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + ados1 + verbalIQ + MOT_MLU + types_CHI + (1+visit + I(visit^2)+   I(visit^3)| ID), data = data[split.create$train, ], REML=FALSE)
   data$pred.cv.create[split.create$app] <- predict(model.create, newdata = data[split.create$app, ])
   }
-# [1] 0.3737171
+#            [1] 0.3737171
+# Predicted: [1] 0.5446184
 
 ## P-hacking model
 for(i in 1:k) {
@@ -328,7 +325,8 @@ for(i in 1:k) {
   model.create <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + ID + nonverbalIQ + verbalIQ + types_CHI + MOT_MLU + (1+visit + I(visit^2)+ I(visit^3)| ID), data = data[split.create$train, ], REML=FALSE)
   data$pred.cv.create[split.create$app] <- predict(model.create, newdata = data[split.create$app, ])
   }
-# [1] 0.3710135
+#            [1] 0.3710135
+# Predicted: [1] 0.5311729
 
 ## Quadratic model
 for(i in 1:k) {
@@ -338,7 +336,7 @@ for(i in 1:k) {
   }
 # [1] 0.4516293
 
-
+ 
 
 # RMSE on the cv model
 rmse(data$pred.cv.create, data$CHI_MLU)
@@ -353,11 +351,11 @@ rmse(predict(model.create, data_test), data_test$CHI_MLU)
 #Take all the kids that a not in the F fold, and that i our train data set. 
 #N=1 in the beginning, Rmse(train[n] =
 #N = N+1 
-
 ```
 
+Using Cross Validation to calculate accuracy of predictions and using the root mean squared error when applying the actual test data, the best predictive model is our p-hacked model from the previous assignment (pseudocode: Child MLU ~ visit + I(visit^2) + I(visit^3) + ID + nonverbalIQ + verbalIQ + types_CHI + MOT_MLU + (1+visit + I(visit^2)+ I(visit^3)| ID). Interestingly, this model does not include ados or diagnosis.
 
-[HERE GOES YOUR ANSWER]
+
 
 ### Exercise 3) Assessing the single child
 
@@ -372,7 +370,6 @@ filter(test, ID == "Bernie")
 sanders <- filter(data_test, ados1 == "7", verbalIQ == "28")
 
 ```
-
 
 You want to evaluate:
 - how does the child fare in ChildMLU compared to the average TD child at each visit? Define the distance in terms of absolute difference between this Child and the average TD.
@@ -410,46 +407,27 @@ TD_average$prediction <- predict(zeus, sanders)
 TD_average$accuracy <- TD_average$prediction-TD_average$bernie
 ```
 
-
-Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
-
-####Not sure about this at all
-
 ```{r, include=FALSE}
 # Plotting Bernies predictions versus actual performance 
 theme_set(theme_bw())
-ggplot(sanders, aes(x = visit)) + 
-  geom_smooth(aes(y=CHI_MLU), colour="red", method = "lm", formula = y ~ poly(x, 3), se = F) + 
-  geom_smooth(aes(y=predictions), colour="blue", method = "lm", formula = y ~ poly(x, 3), se = F) +
+feelthebern <- ggplot(TD_average, aes(x = visit)) + 
+  geom_smooth(aes(y=bernie), colour="red", method = "lm", formula = y ~ poly(x, 3), se = F) + 
+  geom_smooth(aes(y=prediction), colour="blue", method = "lm", formula = y ~ poly(x, 3), se = F) +
   xlab('Number of Visit') +
   ylab("Bernie's Mean Length of Utterance") 
-
 ```
 
+```{r Dataframe and Plot}
+# Dataframe
+TD_average
 
+# Plot
+feelthebern
+```
 
-[HERE GOES YOUR ANSWER]
+Bernie, a child with ASD, generally fares quite well in his development of MLU compared to the average of TD participant. We have used the raw data to calculate the average of the TD group which was compared to Bernie's average. He is consistently outperforming the TD average, e.g. with his MLU of 1.98 and the TD average of 1.3 in the first visit. He is thus above the average of the TD participants, which is an interesting point as he has ASD. 
+When looking into the model prediction of how Bernie should develop, the model overshoots his performance in the first five visits, but in the sixth his MLU is better than what the model predicts it to be (Bernie = 3.45, Model = 3.37). 
 
-
-
-As for Bernie compared to the average TD ...
-
-At visit 6, the prediction of the model is a ChildMLU of 2.45. Bernie has a ChildMLU at 3.45. Bernie is better then the predicted values. 
-
-When using the model to calculate the predictions on Bernies data only we see that Bernie performed close to expectations at the first visit but in general below expectations at the first 5 visits. However, at visit 6 Bernie performed above expectations. 
-
-
-
-### OPTIONAL: Exercise 4) Model Selection via Information Criteria
-Another way to reduce the bad surprises when testing a model on new data is to pay close attention to the relative information criteria between the models you are comparing. Let's learn how to do that!
-
-Re-create a selection of possible models explaining ChildMLU (the ones you tested for exercise 2, but now trained on the full dataset and not cross-validated).
-
-Then try to find the best possible predictive model of ChildMLU, that is, the one that produces the lowest information criterion.
-
-- Bonus question for the optional exercise: are information criteria correlated with cross-validated RMSE? That is, if you take AIC for Model 1, Model 2 and Model 3, do they co-vary with their cross-validated RMSE?
-
-### OPTIONAL: Exercise 5): Using Lasso for model selection
-
-Welcome to the last secret exercise. If you have already solved the previous exercises, and still there's not enough for you, you can expand your expertise by learning about penalizations. Check out this tutorial: http://machinelearningmastery.com/penalized-regression-in-r/ and make sure to google what penalization is, with a focus on L1 and L2-norms. Then try them on your data!
+When using the model to calculate the predictions on Bernies data only we see that Bernie performed close to expectations at the first visit but in general below expectations at the first 5 visits. However, at visit 6 Bernie performed above expectations. The difference between the models predictions and how he fares is, however, fairly small. 
+This development can also be seen in the plot below, where the blue line indicates the predictions obtained by the model and the red line is Bernie's actual performance.
 
