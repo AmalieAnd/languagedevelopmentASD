@@ -8,7 +8,7 @@ output:
 ---
 
 ```{r}
-setwd("~/Library/Mobile Documents/com~apple~CloudDocs/Aarhus Universitet/3. Semester/1. Experimental Methods lll/R FOLDER/languagedevelopmentASD/languagedevelopmentASD")
+setwd("~/Library/Mobile Documents/com~apple~CloudDocs/4. Aarhus Universitet/3. Semester/1. Experimental Methods lll/R FOLDER/languagedevelopmentASD/languagedevelopmentASD")
 
 library(pacman)
 p_load(tidyverse, data.table, stringr, ggplot2, Metrics, lmerTest, caret, gdata, plyr)
