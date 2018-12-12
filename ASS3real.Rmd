@@ -2,10 +2,12 @@
 title: "Assignment 1 - Language Development in ASD - part 3"
 author: "Amalie Lysgaard Andersen"
 date: "August 10, 2018"
-output: word_document
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE)
+
 setwd("~/Library/Mobile Documents/com~apple~CloudDocs/4. Aarhus Universitet/3. Semester/1. Experimental Methods lll/R FOLDER/languagedevelopmentASD/languagedevelopmentASD")
 
 library(pacman)
@@ -172,7 +174,7 @@ Which model is better at predicting new data:
 - Test both of them on the test data.
 - Report the results and comment on them.
 
-```{r Basic and last week's model}
+```{r Basic and last week's model, include = False}
 # Creating the basic model
 hercules <- lmer(CHI_MLU ~ visit + diagnosis + (1 + visit | ID), data = data, REML = F)
 summary(hercules)
@@ -182,7 +184,7 @@ zeus <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + verbalIQ + (1+visi
 summary(zeus)
 ```
  
-```{r Full data set: Model prediction RMSE}
+```{r Full data set: Model prediction RMSE, include = False}
 # RUN ON FULL DATA
 
 # Get the RMSE of the basic model's predictions
@@ -194,7 +196,7 @@ rmse(data$CHI_MLU, predict(hercules))
 # [1] 0.3380725
 ```
  
-```{r Cross validation}
+```{r Cross validation, include = False}
 p_load(caret)
 set.seed(242)
 folds <- createFolds(unique(data$ID),5)
@@ -276,7 +278,7 @@ When the two models’ cross validation predictions are applied to the actual te
 
 
 - Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
-```{r Finding models}
+```{r Finding models, include = False}
 ### Quadratic interaction
 n=1
 rmsetrain = NULL
@@ -676,7 +678,7 @@ rmse(data$cv.pred_best, data$CHI_MLU)
 ```
 
 
-```{r Best models}
+```{r Best models, include = False}
 # Implement the 5-fold cross-fold plan 
 data$pred.cv.create <- 0  
 data$pred.cv.create1 <- 0 
