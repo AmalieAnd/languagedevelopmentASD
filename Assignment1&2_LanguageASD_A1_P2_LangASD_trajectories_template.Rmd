@@ -5,12 +5,6 @@ date: "12.9.2018"
 output: html_document
 ---
     
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
-# you could optionally set include = TRUE globally while working on the exercise and then just change it to include = FALSE before you hand in
-
-```
-
 # Template for the hand-in
 ### Structure of the code chunks
 
@@ -51,10 +45,10 @@ If you opened this Rmd file outside of a project, you will need some code to fin
 If you're in a project, just put the data in the project folder and you're good to go! (Or make a data subfolder to keep it tidy around here)
 ```{r Load Data + renaming, include = FALSE}
 #wd
-setwd("~/Library/Mobile Documents/com~apple~CloudDocs/Aarhus Universitet/3. Semester/1. Experimental Methods lll/R FOLDER/languagedevelopmentASD/languagedevelopmentASD")
+setwd("~/Library/Mobile Documents/com~apple~CloudDocs/4. Aarhus Universitet/3. Semester/1. Experimental Methods lll/R FOLDER/languagedevelopmentASD/languagedevelopmentASD")
 
 #Load data
-langASD <- read.csv("LanguageASD.csv")
+langASD <- read.csv("langasd.csv")
 
 # Renaming some variables for them to be more clearly understood
 langASD <- rename.vars(langASD,"MullenRaw1", "nonverbalIQ")
@@ -84,11 +78,14 @@ Make sure the variables are in the right format.
 
 Describe the characteristics of the two groups of participants and whether the two groups are well matched.
 
-```{r descriptive stats, include = FALSE}
+```{r Descriptive stats, include = FALSE}
+detach(package:plyr)
+library(dplyr)
+
 # Counting diagnosis
-langASD %>%
+langASD %>% 
   filter(visit==1)%>%
-  count(diagnosis)
+  count(diagnosis )
 
 # Counting gender
 langASD %>%
@@ -122,22 +119,46 @@ mean(langASD$nonverbalIQ[langASD$diagnosis=="TD"], na.rm = T)
 # verbalIQ mean 
 mean(langASD$verbalIQ[langASD$diagnosis=="ASD"], na.rm = T) 
 mean(langASD$verbalIQ[langASD$diagnosis=="TD"], na.rm = T) 
- 
-
-# Visualising the data - Boxplot
-boxplot(CHI_MLU~visit+diagnosis,
-        col = c("white", "grey"),
-        langASD)
-
-x <- rep(1:12, each=7)
-y <- rnorm(12*7)
-
-boxplot(CHI_MLU~visit+diagnosis, col=rainbow(length(unique(x)), langASD))
 
 
 ``` 
 
-[REPORT THE RESULTS]
+```{r Plots}
+#Plotting the participant data
+#Looking at the development over time in mean length of utterance for kids with and witout autism 
+#Boxplot showing the two different groups of children (ASD and TD)
+boxplot(CHI_MLU ~ visit+diagnosis, data = langASD,
+        col = c("blue", "bisque"))
+
+# x <- rep(1:12, each=7)
+# y <- rnorm(12*7)
+
+#Making a plot that shows the development of the ASD children versus the TD
+xlab <- "Visit"
+ylab <- "Mean Lenght of Utterance"
+
+#PLOT WITH MEAN LINEAR LINE
+ggplot(langASD) + 
+  aes(x = visit, y = CHI_MLU, color = ID) + 
+  stat_smooth(method = "lm", col = "grey") +
+  # Put the points on top of lines
+  geom_point() +
+  facet_wrap("diagnosis") +
+  labs(x = xlab, y = ylab)
+
+#PLOT WITH INDIVIDUAL LINEAR LINES
+ggplot(langASD, aes(x = visit, y = CHI_MLU, group = ID)) +
+  geom_smooth(method = "lm", se = F, aes(col = ID)) + 
+  geom_point(aes(col = ID)) +
+  facet_wrap(~ diagnosis) + 
+  labs(x = xlab, y = ylab)
+
+# Looking at the children individually - would a linear model be a good model?
+# No, especially not for ADS kids
+
+```
+
+
 We have decided to remove ID 11 and ID 66 due to messed up data. 
 
 
@@ -155,15 +176,15 @@ Remember to plot the data first and then to run a statistical test.
 ```{r ex2 modelling, include = FALSE}
 # Creating a linear model
 asd_model = lmer(CHI_MLU ~ visit + diagnosis + (1+visit|ID), data=langASD, REML=FALSE)
-summary(asd_model)
+summary(asd_model) 
+confint(asd_model)
 ```
-
 
 How would you evaluate whether the model is a good model?
 ```{r ex2 evaluate, include = FALSE}
 ### First checking for assumptions
 
-# Normality
+# Normality 
 qqnorm(residuals(asd_model)) 
 # Histogram
 hist(residuals(asd_model))
@@ -187,48 +208,13 @@ summary(model1.null)
 # Without diagnosis
 model1.null2 <- lmer(CHI_MLU ~ visit + (1 + visit | ID), data=langASD, REML = F)
 # Without any predictors
-model1.null3 <- lmer(CHI_MLU ~(1 + visit | ID), data=langASD, REML = F)
+model1.null3 <- lmer(CHI_MLU ~ 1 + (1 + visit | ID), data=langASD, REML = F)
 # Without visit as random slope
 model_ID <- lmer(CHI_MLU ~ visit + diagnosis + (1 | ID), data=langASD, REML = F)
 
 # ANOVA: Comparing the null models to the alternative model
 anova(model1.null2, asd_model)
 anova(model1.null, asd_model, model_ID)
-```
-
-
-```{r Visualisation of data}
-
-# Assigning label values
-xlab <- "Visit"
-ylab <- "Mean Length of Utterance"
-
-# Non-linear descriptions - one linear mean line line/group
-ggplot(langASD, display = "ID", mapping = aes(x = visit, y = CHI_MLU, colour = ID)) + 
-  stat_smooth(method = "lm", se = F, formula = y ~ poly(x, 3), colour = "grey") +
-  geom_point() +
-  facet_wrap(~diagnosis) +
-  labs(x= xlab, y=ylab)
-
-# Individually coloured participants with one linear mean line in each group
-ggplot(langASD) + 
-  aes(x = visit, y = CHI_MLU, color = ID) + 
-  stat_smooth(method = "lm", se = T, col = "grey") +
-  # Put the points on top of lines
-  geom_point() +
-  facet_wrap("diagnosis") +
-  labs(x = xlab, y = ylab)
-
-# Each participant has a mean linear line + each point shown
-ggplot(langASD, aes(x = visit, y = CHI_MLU, group = ID)) +
-  geom_smooth(method = "lm", se = F, aes(col = ID)) + 
-  geom_point(aes(col = ID)) +
-  facet_wrap(~ diagnosis) + 
-  labs(x = xlab, y = ylab)
-
-#Looking at the children individually - would a linear model be a good model?
-#No, especially not for ADS kids
-
 ```
 
 ```{r Visualising} 
@@ -260,7 +246,7 @@ First build the different models, then compare them to see which one is better
 
 ```{r ex2 growth curve, include = FALSE}
 # Creating the quadratic model - and checking it
-model_quadratic <- lmer(CHI_MLU ~ visit + I(visit^2) + diagnosis + (1+visit|ID), data = langASD, REML=FALSE)
+model_quadratic <- lmer(CHI_MLU ~ visit + I(visit^2) + diagnosis + (1+visit|ID), data = langASD, REML=FALSE) 
 summary(model_quadratic)
 plot(fitted(model_quadratic),residuals(model_quadratic))^2
 # Residuals = 0.14
@@ -290,11 +276,11 @@ ggplot(as.data.frame(ee),
 
 ``` 
 
+```{r ex2 Plots of new models}
 
-```{r Plots of new models}
 ### Quadratic
 
-# Plotting w. mean line
+# Plotting w. mean line 
 ggplot(langASD) + 
   aes(x = visit, y = CHI_MLU) + 
   stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
@@ -317,7 +303,7 @@ ggplot(data = langASD, aes(x = visit, y = CHI_MLU, group = ID)) +
 ggplot(langASD) + 
   aes(x = visit, y = CHI_MLU) + 
   geom_point(aes(col = ID)) +
-  geom_smooth(method = "lm", formula = y ~ poly(x, 3), col= "orange") + 
+  geom_smooth(method = "lm", formula = y ~ poly(x, 3), col= "grey") + 
   # Put the points on top of lines
   facet_wrap("diagnosis") +
   labs(x = xlab, y = ylab)
@@ -329,33 +315,46 @@ ggplot(langASD, aes(x = visit, y = CHI_MLU, group = ID)) +
   facet_wrap(~ diagnosis) + 
   labs(x = xlab, y = ylab)
 
+
+
+# Assigning label values
+xlab <- "Visit" 
+ylab <- "Mean Length of Utterance"
+
+# Non-linear descriptions - one linear mean line line/group
+ggplot(langASD, display = "ID", mapping = aes(x = visit, y = CHI_MLU, colour = ID)) + 
+  stat_smooth(method = "lm", se = F, formula = y ~ poly(x, 3), colour = "grey") +
+  geom_point() +
+  facet_wrap(~diagnosis) +
+  labs(x= xlab, y=ylab)
+
 ```
 
+```{r ex2 Prediction plot}
+# Plotting the best model's prediction (quadratic)
+aa <- effect(c("diagnosis","visit"), parental_MLU_quadratic)  
+heme_set(theme_bw())
 
-Exciting right?
-Now it's time to report our results.
-Remember to report:
-- the estimates for each predictor (beta estimate, standard error, p-value)
-- A plain word description of the results
-- A plot of your best model's predictions
+ggplot(as.data.frame(aa),
+    aes(visit,fit,colour=diagnosis,fill=diagnosis)) +
+    geom_line() +
+    ## colour=NA suppresses edges of the ribbon
+    geom_ribbon(colour=NA,alpha=0.1, aes(ymin=lower,ymax=upper)) +
+    labs(title = "Predicting parental MLU development from diagnosis", x = "Visit", y = "MLU")
+```
 
-[REPORT THE RESULTS]
-Linguistic development of children MLU is affected by ... 
-
-## Let's test hypothesis 2: Parents speak equally to children with ASD and TD  (Exercise 3)
-
-### Hypothesis: Parental MLU changes: i) over time, ii) according to diagnosis
+### Exercise 3: Parental MLU
 
 ```{r ex3 Visualisations + model, include = FALSE}
 ### First visualising
 
-# Plotting the MLU of parent 
+# Plotting the MLU of parent  
 boxplot(MOT_MLU ~ visit+diagnosis, data = langASD,
         col = c("white", "grey"))
 
 # Creating a linear model for parental MLU
 parental_MLU = lmer(MOT_MLU ~ visit + diagnosis + (1+visit|ID), data=langASD, REML=FALSE)
-summary(parent_mlu)
+summary(parental_MLU)
 
 # Linear plot
 ggplot(data = langASD, aes(x = visit, y = MOT_MLU, group = ID)) +
@@ -364,15 +363,13 @@ ggplot(data = langASD, aes(x = visit, y = MOT_MLU, group = ID)) +
   facet_wrap(~ diagnosis) + 
   labs(x = xlab, y = ylab)
 
-
-
 ```
 
 ```{r ex3 Models}
 ### Quadratic Parental Model
 parental_MLU_quadratic <- lmer(MOT_MLU ~ visit + I(visit^2) + diagnosis + (1+visit + I(visit^2) |ID), data = langASD, REML=FALSE)
 summary(parental_MLU_quadratic)
-
+ 
 # Residual plot
 plot(fitted(parental_MLU_quadratic),residuals(parental_MLU_quadratic))^2
 
@@ -385,7 +382,7 @@ ggplot(data = langASD, aes(x = visit, y = MOT_MLU, group = ID)) +
 
 # Mean line
 ggplot(data = langASD, aes(x = visit, y = MOT_MLU)) +
-  geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = F, color = "orange") + 
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = F, color = "grey") + 
   geom_point(aes(col = ID)) + 
   facet_wrap(~ diagnosis) + 
   labs(x = xlab, y = ylab)
@@ -408,21 +405,10 @@ ggplot(data = langASD, aes(x = visit, y = MOT_MLU, group = ID)) +
 
 
 ### Checking models
-anova(parental_MLU, parental_MLU_quadratic, parental_MLU_cubic)
+anova(model1.null, parental_MLU, parental_MLU_quadratic, parental_MLU_cubic)
 
-#Checking the best against the null.model
+# Checking the best against the null.model
 anova(model1.null, model1.null2, parental_MLU_quadratic)
-
-
-# Plotting the best model's prediction (quadratic)
-aa <- effect(c("diagnosis","visit"), parental_MLU_quadratic) 
-theme_set(theme_bw())
-ggplot(as.data.frame(aa),
-    aes(visit,fit,colour=diagnosis,fill=diagnosis)) +
-    geom_line() +
-    ## colour=NA suppresses edges of the ribbon
-    geom_ribbon(colour=NA,alpha=0.1, aes(ymin=lower,ymax=upper)) +
-    labs(title = "Predicting parental MLU development from diagnosis", x = "Visit", y = "MLU")
 ```
 
 The quadratic model is the one with the lowest AIC. 
@@ -434,10 +420,9 @@ And most significant.
 Your task now is to figure out how to best describe the children linguistic trajectory. The dataset contains a bunch of additional demographic, cognitive and clinical variables (e.g.verbal and non-verbal IQ). Try them out and identify the statistical models that best describes your data (that is, the children's MLU). Describe how you selected the best model and send the code to run the model to Malte (au540041@post.au.dk).
 
 
-```{r ex4, include = FALSE}
+```{r ex4 cor test , include = FALSE}
 # Correlation test to find variables that correlate / explain the same variance 
-
-data_cor = select(langASD, visit, age, ados1, nonverbalIQ, verbalIQ, MOT_MLU, types_MOT, tokens_MOT, types_CHI, tokens_CHI, CHI_MLU)  %>%
+data_cor = select(langASD, visit, age, ados1, nonverbalIQ, verbalIQ, MOT_MLU, types_MOT, tokens_MOT, types_CHI, tokens_CHI, CHI_MLU)  %>% 
   filter(!is.na(age)) %>% filter(!is.na(CHI_MLU))
 
 corr = round(cor(data_cor,method = "spearman"),2)
@@ -445,13 +430,11 @@ corr
 
 # Using corrplot to visually show the correlations
 corrplot(corr,method="color",col=brewer.pal(n=5, name="PuOr"),type="upper",tl.col="black", addgrid.col = "black")
-
 ```
 
-[REPORT THE RESULTS]
 
 Playing with Ados (severity)
-```{r ex4, include = FALSE}
+```{r ex4 ADOS model, include = FALSE}
 ### Trying to find the best model
 
 # Using ados instead of diagnosis
@@ -473,7 +456,7 @@ Playing with MOT_MLU
 ```{r ex4, include = FALSE}
 # Adding the parents' MLU
 model_MOT <- lmer(CHI_MLU ~ visit + MOT_MLU + (1 + visit| ID), data = langASD, REML=FALSE)
-summary(model_MOT)
+summary(model_MOT) 
 # A lot of variance seems to be explained by MOT_MLU
 
 #R-squared
@@ -487,7 +470,7 @@ r.squaredGLMM(model_MOT)
 
 # Time-out: Comparing the two new models created so far
 anova(model_ados, model_MOT)
-# MOT is better... 
+# MOT is better with the ANOVA. But R^2 is better 
 
 
 #Combining the findings with ados and mot_mlu
@@ -524,17 +507,21 @@ plot(predict(model_both_q))
 ## [1,] 0.3041565 0.8507551
 #This model explains more than the quadratic with only ados
 
+# Final model
+model_three_q <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + verbalIQ + (1+visit + I(visit^2) | ID), data = langASD, REML=FALSE)
 
-###Comparing
-anova(model_ados_c, model_ados_q, model_both_q, model_cubic)
 
+# Comparing
+anova(model_ados_c, model_ados_q, model_both_q, model_cubic, model_three_q)
+
+### NOTE: All cubic don't converge
 ```
 
 
 P-hacking - playing around with best possible model
-```{r ex4, include = FALSE}
+```{r ex4 P-hacking, include = FALSE}
 ### For fun best model 
-p_hacked <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + ID + nonverbalIQ + verbalIQ + types_CHI + MOT_MLU + (1+visit + I(visit^2)+ I(visit^3)| ID), data = langASD, REML=FALSE)
+p_hacked <- lmer(CHI_MLU ~ visit + I(visit^2) + nonverbalIQ + verbalIQ + types_CHI + MOT_MLU + (1+visit + I(visit^2) | ID), data = langASD, REML=FALSE)
 summary(p_hacked)
 
 r.squaredGLMM(p_hacked)
@@ -542,16 +529,28 @@ r.squaredGLMM(p_hacked)
 ##          R2m       R2c
 ## [1,] 0.766436 0.8891787
 
-
 ### Comparing
-anova(model_ados_c, model_ados_q, model_both_q, model_cubic)
-
-
-# Same model, but incl. ados
-model_both_q <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + (1+visit + I(visit^2) | ID), data = langASD, REML=FALSE)
-r.squaredGLMM(model_both_q)
-
-##           R2m      R2c
-## [1,] 0.3041547 0.850755
-
+anova(model_ados_c, model_ados_q, model_both_q, model_cubic, p_hacked)
 ```
+
+
+```{r Plots }
+# Plotting the data with ados
+ggplot(data = langASD, aes(x = visit, y = CHI_MLU, group = ados1, colour = ados1)) +
+  geom_smooth(method = "lm", 
+              formula = y ~ poly(x, 3), se = F) + 
+  geom_point() + 
+  facet_wrap(~ diagnosis) + 
+  labs(x = xlab, y = ylab) + 
+  scale_color_gradient2(low = "blue", mid = "green", high = "red", midpoint = 10)
+
+# Facet by ados
+ggplot(data = langASD, aes(x = visit, y = CHI_MLU, group = ados1, colour = ados1)) +
+  geom_smooth(method = "lm", 
+              formula = y ~ poly(x, 3), se = F) + 
+  geom_point() + 
+  facet_wrap(~ ados1) + 
+  labs(x = xlab, y = ylab) + 
+  scale_color_gradient2(low = "blue", mid = "green", high = "red", midpoint = 10)
+```
+
