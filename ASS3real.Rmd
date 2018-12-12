@@ -2,7 +2,10 @@
 title: "Assignment 1 - Language Development in ASD - part 3"
 author: "Amalie Lysgaard Andersen"
 date: "August 10, 2018"
-output: html_document
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -22,7 +25,7 @@ In this exercise we will delve more in depth with different practices of model c
 ### Cleaning data
 
 ```{r Loading test data,  include=FALSE}
-#Loading the new data  
+#Loading the new data   
 demo_test <- read.csv("demo_test.csv")
 token_test <- read.csv("token_test.csv")
 lu_test <- read.csv("lu_test.csv")
@@ -174,8 +177,9 @@ Which model is better at predicting new data:
 - Test both of them on the test data.
 - Report the results and comment on them.
 
-```{r Basic and last week's model, include = False}
-# Creating the basic model
+```{r Basic and last weeks model, include = FALSE}
+
+# Creating the basic model 
 hercules <- lmer(CHI_MLU ~ visit + diagnosis + (1 + visit | ID), data = data, REML = F)
 summary(hercules)
 
@@ -184,7 +188,7 @@ zeus <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + verbalIQ + (1+visi
 summary(zeus)
 ```
  
-```{r Full data set: Model prediction RMSE, include = False}
+```{r Full data set: Model prediction RMSE, include = FALSE}
 # RUN ON FULL DATA
 
 # Get the RMSE of the basic model's predictions
@@ -196,7 +200,7 @@ rmse(data$CHI_MLU, predict(hercules))
 # [1] 0.3380725
 ```
  
-```{r Cross validation, include = False}
+```{r Cross validation, include = FALSE}
 p_load(caret)
 set.seed(242)
 folds <- createFolds(unique(data$ID),5)
@@ -278,7 +282,7 @@ When the two models’ cross validation predictions are applied to the actual te
 
 
 - Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
-```{r Finding models, include = False}
+```{r Finding models, include = FALSE}
 ### Quadratic interaction
 n=1
 rmsetrain = NULL
@@ -453,7 +457,7 @@ sanders$absolute_dif <- sanders$CHI_MLU - sanders$TD_MLU
 sanders$absolute_dif
 ```
 
-```{r DF Bernie, include = False}
+```{r DF Bernie, include = FALSE}
 TD_bernie <- select(sanders, visit, CHI_MLU)
 TD_bernie$TD_avr <- c(TD1, TD2, TD3, TD4, TD5, TD6)
 TD_bernie$abs_difference <- TD_bernie$CHI_MLU-TD_bernie$TD_avr
@@ -625,7 +629,7 @@ rmse(data$CHI_MLU, data$p_hacked_pred)
 
 ```
 
-```{r CV: Riccardo's, include=FALSE}
+```{r CV: Riccardos, include=FALSE}
 # Another way to do CV (Riccardo's way) 
 #k <- 10 #the number of folds
 #Crate the folds 
@@ -678,8 +682,8 @@ rmse(data$cv.pred_best, data$CHI_MLU)
 ```
 
 
-```{r Best models, include = False}
-# Implement the 5-fold cross-fold plan 
+```{r Best models, include = FALSE}
+# Implement the 5 fold cross-fold plan  
 data$pred.cv.create <- 0  
 data$pred.cv.create1 <- 0 
 
@@ -721,14 +725,7 @@ rmse(predict(model.create, data_test), data_test$CHI_MLU)
 ```
 
 
- 
- 
- 
- 
- 
- 
- 
- 
+
  
  
  
